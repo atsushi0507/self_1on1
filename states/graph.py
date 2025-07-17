@@ -1,29 +1,31 @@
 from langgraph.graph import StateGraph
 from typing import TypedDict, Optional
-from states import state_theme, state_reflection, state_insight, state_action, state_fleetalk
+from states.state_theme import build_theme_graph
+from states.state_reflection import build_reflection_graph
 
-class OneOnOneState(TypedDict, total=False):
+class SessionState(TypedDict):
     theme: Optional[str]
+    themeSessionSummary: str
     reflection: Optional[str]
     insight: Optional[str]
     action: Optional[str]
 
-def build_1on1_graph():
-    graph = StateGraph(state_schema=OneOnOneState)
 
-    # 各ノードを追加
-    graph.add_node("ask_for_theme", state_theme.run)
-    graph.add_node("check_reflection", state_reflection.run)
-    graph.add_node("check_insight", state_insight.run)
-    graph.add_node("check_action", state_action.run)
-    graph.add_node("check_fleetalk", state_fleetalk.run)
+def build_main_graph():
+    # Main graph
+    graph = StateGraph(state_schema=SessionState)
 
-    # 遷移定義 (とりあえず直列。分岐なし)
-    graph.set_entry_point("ask_for_theme")
-    graph.add_edge("ask_for_theme", "check_reflection")
-    graph.add_edge("check_reflection", "check_insight")
-    graph.add_edge("check_insight", "check_action")
-    graph.add_edge("check_action", "check_fleetalk")
-    graph.set_finish_point("check_fleetalk")
+    # Subgraph
+    theme_graph = build_theme_graph()
+    reflection_graph = build_reflection_graph()
+
+    # Add nodes
+    graph.add_node("decide_theme", theme_graph)
+    graph.add_node("do_reflection", reflection_graph)
+
+    # Connect processes
+    graph.set_entry_point("decide_theme")
+    graph.add_edge("decide_theme", "do_reflection")
+    graph.set_finish_point("do_reflection")
 
     return graph.compile()
