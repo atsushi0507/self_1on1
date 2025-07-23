@@ -1,6 +1,5 @@
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
-from langchain_core.messages import HumanMessage, AIMessage
 
 
 class InsightState(TypedDict):
@@ -23,10 +22,30 @@ def receive_insight_response():
 def judge_insight_depth():
     pass
 
-# 4. 洞察を得るための質問を続ける
-def continue_extract_insight_question():
-    pass
+
+def should_continue_insight(state: InsightState) -> InsightState:
+    if state.get("get_deep_insight", False):
+        return "loop"
+    return "end"
 
 # グラフ作成
 def build_insight_graph():
-    pass
+    sg = StateGraph(InsightState)
+
+    sg.add_node("propose_insight", propose_insight_question)
+    sg.add_node("receive_response", receive_insight_response)
+    sg.add_node("judge_insight", judge_insight_depth)
+
+    sg.set_entry_point("propose_insight")
+    sg.add_edge("propose_insight", "receive_response")
+    sg.add_edge("receive_response", "judge_insight")
+    sg.add_conditional_edges(
+        "judge_insight",
+        should_continue_insight,
+        {
+            "loop": "propose_insight",
+            "end": END
+        }
+    )
+
+    return sg.compile()
